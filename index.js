@@ -1,7 +1,6 @@
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const ytdl = require('ytdl-core');
-const ytSearch = require('yt-search');
+const play = require('play-dl');
 const ffmpeg = require('ffmpeg-static');
 const express = require('express');
 
@@ -61,16 +60,17 @@ client.on('interactionCreate', async interaction => {
             let videoUrl = query;
             let videoTitle = query;
 
-            if (!ytdl.validateURL(query)) {
-                const searchResult = await ytSearch(query);
-                if (!searchResult || searchResult.videos.length === 0) {
+            // إذا لم يكن المدخل رابطاً، نقوم بالبحث عبر play-dl
+            if (!query.startsWith('http')) {
+                let searchResults = await play.search(query, { limit: 1 });
+                if (!searchResults || searchResults.length === 0) {
                     return interaction.editReply('❌ لم يتم العثور على نتائج مطابقة!');
                 }
-                videoUrl = searchResult.videos[0].url;
-                videoTitle = searchResult.videos[0].title;
+                videoUrl = searchResults[0].url;
+                videoTitle = searchResults[0].title;
             } else {
-                const videoInfo = await ytdl.getInfo(query);
-                videoTitle = videoInfo.videoDetails.title;
+                let info = await play.video_info(query);
+                videoTitle = info.video_details.title;
             }
 
             const connection = joinVoiceChannel({
@@ -80,13 +80,12 @@ client.on('interactionCreate', async interaction => {
                 selfDeaf: false,
             });
 
-            const stream = ytdl(videoUrl, {
-                filter: 'audioonly',
-                quality: 'highestaudio',
-                highWaterMark: 1 << 25,
+            // جلب تدفق الصوت الحقيقي والمضمون عبر play-dl
+            let streamData = await play.stream(videoUrl);
+            let resource = createAudioResource(streamData.stream, { 
+                inputType: streamData.type 
             });
 
-            const resource = createAudioResource(stream);
             const player = createAudioPlayer();
 
             player.play(resource);
