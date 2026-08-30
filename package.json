@@ -1,16 +1,17 @@
 {
   "name": "discord-music-bot",
   "version": "1.0.0",
-  "description": "Discord music bot with Slash Commands",
+  "description": "Stable Discord music bot with Slash Commands",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "@discordjs/voice": "^0.16.1",
+    "@distube/ytdl-core": "^4.16.4",
     "discord.js": "^14.14.0",
     "express": "^4.19.1",
     "ffmpeg-static": "^5.2.0",
-    "play-dl": "^1.9.7"
+    "yt-search": "^2.11.0"
   }
 }
