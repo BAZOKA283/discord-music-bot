@@ -85,4 +85,6 @@ client.on('messageCreate', async message => {
 });
 
 // ضع توكن بوتك هنا بدل المربعين أو في متغيرات البيئة (Environment Variables) برندر
-client.login('YOUR_BOT_TOKEN_HERE');
+client.login(process.env.DISCORD_TOKEN);
+
+
