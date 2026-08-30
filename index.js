@@ -1,6 +1,7 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const play = require('play-dl');
+const ytdl = require('ytdl-core');
+const ytSearch = require('yt-search');
 const express = require('express');
 
 const app = express();
@@ -29,7 +30,7 @@ client.on('messageCreate', async message => {
         const query = args.slice(1).join(' ');
 
         if (!query) {
-            return message.reply('❌ يرجى كتابة اسم أو رابط الأغنية بعد الأمر مثال: `3play faded`');
+            return message.reply('❌ يرجى كتابة اسم أو رابط الأغنية بعد الأمر مثال: `3play faded` أو أرسل رابط يوتيوب');
         }
 
         const voiceChannel = message.member?.voice.channel;
@@ -40,22 +41,21 @@ client.on('messageCreate', async message => {
         try {
             const msg = await message.channel.send('🔍 جاري البحث والتحميل...');
 
-            // التحقق مما إذا كان المدخل رابطاً مباشراً أو نص بحث
             let videoUrl = query;
             let videoTitle = query;
 
-            if (!query.startsWith('http')) {
-                let searchResults = await play.search(query, { limit: 1 });
-                if (!searchResults || searchResults.length === 0 || !searchResults[0].url) {
+            // إذا لم يكن المدخل رابطاً، نقوم بالبحث عنه عبر yt-search
+            if (!ytdl.validateURL(query)) {
+                const searchResult = await ytSearch(query);
+                if (!searchResult || searchResult.videos.length === 0) {
                     return msg.edit('❌ لم يتم العثور على نتائج مطابقة!');
                 }
-                videoUrl = searchResults[0].url;
-                videoTitle = searchResults[0].title;
-            }
-
-            // فحص إضافي للتأكد من صحة الرابط نهائياً
-            if (!videoUrl || typeof videoUrl !== 'string' || !videoUrl.startsWith('http')) {
-                return msg.edit('❌ خطأ: الرابط المستخرج غير صالح.');
+                videoUrl = searchResult.videos[0].url;
+                videoTitle = searchResult.videos[0].title;
+            } else {
+                // إذا كان رابطاً مباشراً، نجلب معلوماته
+                const videoInfo = await ytdl.getInfo(query);
+                videoTitle = videoInfo.videoDetails.title;
             }
 
             // الاتصال بالروم الصوتي
@@ -65,9 +65,14 @@ client.on('messageCreate', async message => {
                 adapterCreator: voiceChannel.guild.voiceAdapterCreator,
             });
 
-            // جلب البث الصوتي
-            let streamData = await play.stream(videoUrl);
-            let resource = createAudioResource(streamData.stream, { inputType: streamData.type });
+            // سحب البث الصوتي عبر ytdl-core
+            const stream = ytdl(videoUrl, { 
+                filter: 'audioonly', 
+                highWaterMark: 1 << 25,
+                quality: 'highestaudio' 
+            });
+
+            const resource = createAudioResource(stream);
             const player = createAudioPlayer();
 
             player.play(resource);
