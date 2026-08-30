@@ -2,7 +2,11 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
 const ytdl = require('ytdl-core');
 const ytSearch = require('yt-search');
+const ffmpeg = require('ffmpeg-static');
 const express = require('express');
+
+// تعيين مسار ffmpeg تلقائياً من الحزمة المثبتة
+process.env.FFMPEG_PATH = ffmpeg;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,7 +34,7 @@ client.on('messageCreate', async message => {
         const query = args.slice(1).join(' ');
 
         if (!query) {
-            return message.reply('❌ يرجى كتابة اسم أو رابط الأغنية بعد الأمر مثال: `3play faded` أو أرسل رابط يوتيوب');
+            return message.reply('❌ يرجى كتابة اسم أو رابط الأغنية بعد الأمر مثال: `3play faded`');
         }
 
         const voiceChannel = message.member?.voice.channel;
@@ -44,7 +48,6 @@ client.on('messageCreate', async message => {
             let videoUrl = query;
             let videoTitle = query;
 
-            // إذا لم يكن المدخل رابطاً، نقوم بالبحث عنه عبر yt-search
             if (!ytdl.validateURL(query)) {
                 const searchResult = await ytSearch(query);
                 if (!searchResult || searchResult.videos.length === 0) {
@@ -53,19 +56,16 @@ client.on('messageCreate', async message => {
                 videoUrl = searchResult.videos[0].url;
                 videoTitle = searchResult.videos[0].title;
             } else {
-                // إذا كان رابطاً مباشراً، نجلب معلوماته
                 const videoInfo = await ytdl.getInfo(query);
                 videoTitle = videoInfo.videoDetails.title;
             }
 
-            // الاتصال بالروم الصوتي
             const connection = joinVoiceChannel({
                 channelId: voiceChannel.id,
                 guildId: voiceChannel.guild.id,
                 adapterCreator: voiceChannel.guild.voiceAdapterCreator,
             });
 
-            // سحب البث الصوتي عبر ytdl-core
             const stream = ytdl(videoUrl, { 
                 filter: 'audioonly', 
                 highWaterMark: 1 << 25,
