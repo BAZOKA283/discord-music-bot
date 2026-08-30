@@ -7,11 +7,13 @@ const express = require('express');
 
 process.env.FFMPEG_PATH = ffmpeg;
 
-// سيرفر إبقائي لاستضافة Fly.io / Railway
+// سيرفر إبقائي لاستضافة Fly.io
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Music Bot is running with play-dl!'));
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// تم ضبط السيرفر ليستمع على 0.0.0.0 لمنع ظهور خطأ البورت في Fly.io
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
 
 const client = new Client({
     intents: [
@@ -63,7 +65,7 @@ client.on('interactionCreate', async interaction => {
             let videoUrl = query;
             let videoTitle = query;
 
-            // التحقق مما إذا كان المدخل ليس رابطاً صريحاً، فنقوم بالبحث عبر yt-search مباشرة
+            // التحقق مما إذا كان المدخل نص بحث أو رابط
             if (!query.startsWith('http://') && !query.startsWith('https://')) {
                 const searchResult = await ytSearch(query);
                 if (!searchResult || searchResult.videos.length === 0) {
@@ -72,7 +74,6 @@ client.on('interactionCreate', async interaction => {
                 videoUrl = searchResult.videos[0].url;
                 videoTitle = searchResult.videos[0].title;
             } else {
-                // إذا كان رابطاً، نحاول جلب العنوان للاستعانة به
                 try {
                     const info = await play.video_info(query);
                     videoTitle = info.video_details.title;
@@ -89,12 +90,11 @@ client.on('interactionCreate', async interaction => {
                 selfDeaf: false,
             });
 
-            // جلب دفق الصوت مع خيارات التوافق لتجنب أخطاء play-dl
+            // جلب دفق الصوت مع نظام احتياطي للبحث
             let stream;
             try {
                 stream = await play.stream(videoUrl);
             } catch (err) {
-                // محاولة بديلة في حال فشل الدفق المباشر
                 const searched = await ytSearch(videoUrl);
                 if (searched && searched.videos.length > 0) {
                     videoUrl = searched.videos[0].url;
