@@ -1,11 +1,10 @@
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core'); // استخدام النسخة الأكثر استقراراً لتجاوز حظر يوتيوب
 const ytSearch = require('yt-search');
 const ffmpeg = require('ffmpeg-static');
 const express = require('express');
 
-// تعيين مسار FFmpeg
 process.env.FFMPEG_PATH = ffmpeg;
 
 const app = express();
@@ -20,7 +19,6 @@ const client = new Client({
     ]
 });
 
-// تعريف أمر الـ Slash Command
 const commands = [
     new SlashCommandBuilder()
         .setName('play')
@@ -34,11 +32,8 @@ const commands = [
 
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
-
-    // تسجيل الأوامر في السيرفرات تلقائياً عند التشغيل
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     try {
-        console.log('Started refreshing application (/) commands.');
         await rest.put(
             Routes.applicationCommands(client.user.id),
             { body: commands },
@@ -60,7 +55,6 @@ client.on('interactionCreate', async interaction => {
             return interaction.reply({ content: '❌ يجب أن تكون متصلاً بروم صوتي (Voice Channel)!', ephemeral: true });
         }
 
-        // الرد الفوري لأن البحث قد يستغرق ثواني
         await interaction.deferReply();
 
         try {
@@ -83,12 +77,15 @@ client.on('interactionCreate', async interaction => {
                 channelId: voiceChannel.id,
                 guildId: voiceChannel.guild.id,
                 adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+                selfDeaf: false, // التأكد من عدم جعل البوت صامتاً لنفسه
             });
 
-            const stream = ytdl(videoUrl, { 
-                filter: 'audioonly', 
+            // ضبط خيارات التحميل لتتوافق مع استقرار الصوت
+            const stream = ytdl(videoUrl, {
+                filter: 'audioonly',
+                quality: 'highestaudio',
                 highWaterMark: 1 << 25,
-                quality: 'highestaudio' 
+                dlChunkSize: 0,
             });
 
             const resource = createAudioResource(stream);
