@@ -7,7 +7,7 @@ const express = require('express');
 
 process.env.FFMPEG_PATH = ffmpeg;
 
-// سيرفر إبقائي لاستضافة Railway
+// سيرفر إبقائي لاستضافة Fly.io / Railway
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Music Bot is running with play-dl!'));
@@ -63,8 +63,8 @@ client.on('interactionCreate', async interaction => {
             let videoUrl = query;
             let videoTitle = query;
 
-            // البحث أو التحقق من الرابط باستخدام yt-search و play-dl
-            if (!play.yt_validate(query)) {
+            // التحقق مما إذا كان المدخل ليس رابطاً صريحاً، فنقوم بالبحث عبر yt-search مباشرة
+            if (!query.startsWith('http://') && !query.startsWith('https://')) {
                 const searchResult = await ytSearch(query);
                 if (!searchResult || searchResult.videos.length === 0) {
                     return interaction.editReply('❌ لم يتم العثور على نتائج مطابقة لهذا البحث!');
@@ -72,8 +72,13 @@ client.on('interactionCreate', async interaction => {
                 videoUrl = searchResult.videos[0].url;
                 videoTitle = searchResult.videos[0].title;
             } else {
-                const info = await play.video_info(query);
-                videoTitle = info.video_details.title;
+                // إذا كان رابطاً، نحاول جلب العنوان للاستعانة به
+                try {
+                    const info = await play.video_info(query);
+                    videoTitle = info.video_details.title;
+                } catch {
+                    videoTitle = "رابط يوتيوب مباشر";
+                }
             }
 
             // الاتصال بالروم الصوتي
@@ -84,8 +89,22 @@ client.on('interactionCreate', async interaction => {
                 selfDeaf: false,
             });
 
-            // دفق الصوت باستخدام play-dl و ffmpeg
-            const stream = await play.stream(videoUrl);
+            // جلب دفق الصوت مع خيارات التوافق لتجنب أخطاء play-dl
+            let stream;
+            try {
+                stream = await play.stream(videoUrl);
+            } catch (err) {
+                // محاولة بديلة في حال فشل الدفق المباشر
+                const searched = await ytSearch(videoUrl);
+                if (searched && searched.videos.length > 0) {
+                    videoUrl = searched.videos[0].url;
+                    videoTitle = searched.videos[0].title;
+                    stream = await play.stream(videoUrl);
+                } else {
+                    throw err;
+                }
+            }
+
             const resource = createAudioResource(stream.stream, {
                 inputType: stream.type
             });
