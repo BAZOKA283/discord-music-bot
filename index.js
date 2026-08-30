@@ -40,12 +40,22 @@ client.on('messageCreate', async message => {
         try {
             const msg = await message.channel.send('🔍 جاري البحث والتحميل...');
 
-            // البحث المتقدم وتصفية النتائج للتأكد من وجود رابط صالح
-            let searchResults = await play.search(query, { limit: 5 });
-            let validSong = searchResults.find(item => item.url);
+            // التحقق مما إذا كان المدخل رابطاً مباشراً أو نص بحث
+            let videoUrl = query;
+            let videoTitle = query;
 
-            if (!validSong) {
-                return msg.edit('❌ لم يتم العثور على نتائج مطابقة أو رابط صالح!');
+            if (!query.startsWith('http')) {
+                let searchResults = await play.search(query, { limit: 1 });
+                if (!searchResults || searchResults.length === 0 || !searchResults[0].url) {
+                    return msg.edit('❌ لم يتم العثور على نتائج مطابقة!');
+                }
+                videoUrl = searchResults[0].url;
+                videoTitle = searchResults[0].title;
+            }
+
+            // فحص إضافي للتأكد من صحة الرابط نهائياً
+            if (!videoUrl || typeof videoUrl !== 'string' || !videoUrl.startsWith('http')) {
+                return msg.edit('❌ خطأ: الرابط المستخرج غير صالح.');
             }
 
             // الاتصال بالروم الصوتي
@@ -56,14 +66,14 @@ client.on('messageCreate', async message => {
             });
 
             // جلب البث الصوتي
-            let streamData = await play.stream(validSong.url);
+            let streamData = await play.stream(videoUrl);
             let resource = createAudioResource(streamData.stream, { inputType: streamData.type });
             const player = createAudioPlayer();
 
             player.play(resource);
             connection.subscribe(player);
 
-            await msg.edit(`🎶 جاري تشغيل الآن: **${validSong.title}**`);
+            await msg.edit(`🎶 جاري تشغيل الآن: **${videoTitle}**`);
 
             player.on(AudioPlayerStatus.Idle, () => {
                 connection.destroy();
