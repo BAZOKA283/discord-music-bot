@@ -11,7 +11,6 @@
     "discord.js": "^14.14.0",
     "express": "^4.19.1",
     "ffmpeg-static": "^5.2.0",
-    "ytdl-core": "^4.11.5",
-    "yt-search": "^2.11.0"
+    "play-dl": "^1.9.7"
   }
 }
