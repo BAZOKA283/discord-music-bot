@@ -3,7 +3,6 @@ const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerSta
 const play = require('play-dl');
 const express = require('express');
 
-// سيرفر وهمي لتبقى استضافة Railway شغالة
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Bot is running!'));
@@ -41,13 +40,13 @@ client.on('messageCreate', async message => {
         try {
             const msg = await message.channel.send('🔍 جاري البحث والتحميل...');
 
-            // البحث باستخدام play-dl
-            let searchResults = await play.search(query, { limit: 1 });
-            if (!searchResults || searchResults.length === 0) {
-                return msg.edit('❌ لم يتم العثور على نتائج مطابقة!');
-            }
+            // البحث المتقدم وتصفية النتائج للتأكد من وجود رابط صالح
+            let searchResults = await play.search(query, { limit: 5 });
+            let validSong = searchResults.find(item => item.url);
 
-            const song = searchResults[0];
+            if (!validSong) {
+                return msg.edit('❌ لم يتم العثور على نتائج مطابقة أو رابط صالح!');
+            }
 
             // الاتصال بالروم الصوتي
             const connection = joinVoiceChannel({
@@ -57,14 +56,14 @@ client.on('messageCreate', async message => {
             });
 
             // جلب البث الصوتي
-            let streamData = await play.stream(song.url);
+            let streamData = await play.stream(validSong.url);
             let resource = createAudioResource(streamData.stream, { inputType: streamData.type });
             const player = createAudioPlayer();
 
             player.play(resource);
             connection.subscribe(player);
 
-            await msg.edit(`🎶 جاري تشغيل الآن: **${song.title}**`);
+            await msg.edit(`🎶 جاري تشغيل الآن: **${validSong.title}**`);
 
             player.on(AudioPlayerStatus.Idle, () => {
                 connection.destroy();
