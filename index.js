@@ -26,7 +26,7 @@ client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
     // أمر التشغيل: !play [رابط الأغنية أو اسم البحث]
-    if (message.content.startsWith('!play')) {
+    if (message.content.startsWith('3play')) {
         const args = message.content.split(' ');
         const query = args.slice(1).join(' ');
 
