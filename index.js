@@ -3,7 +3,7 @@ const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerSta
 const play = require('play-dl');
 const express = require('express');
 
-// سيرفر وهمي حتى يظل البوت شغال وما يطفي
+// سيرفر وهمي لتبقى استضافة Railway شغالة
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Bot is running!'));
@@ -25,7 +25,6 @@ client.once('ready', () => {
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
-    // رابط الأغنية أو اسم البحث | امر التشغيل 3play
     if (message.content.startsWith('3play')) {
         const args = message.content.split(' ');
         const query = args.slice(1).join(' ');
@@ -40,15 +39,15 @@ client.on('messageCreate', async message => {
         }
 
         try {
-            message.channel.send('🔍 جاري البحث والتحميل...');
+            const msg = await message.channel.send('🔍 جاري البحث والتحميل...');
 
-            // play-dl البحث عن المقطع باستخدام
-            let searchResult = await play.search(query, { limit: 1 });
-            if (!searchResult.length) {
-                return message.reply('❌ لم يتم العثور على نتائج مطابقة!');
+            // البحث باستخدام play-dl
+            let searchResults = await play.search(query, { limit: 1 });
+            if (!searchResults || searchResults.length === 0) {
+                return msg.edit('❌ لم يتم العثور على نتائج مطابقة!');
             }
 
-            const songUrl = searchResult[0].url;
+            const song = searchResults[0];
 
             // الاتصال بالروم الصوتي
             const connection = joinVoiceChannel({
@@ -57,32 +56,31 @@ client.on('messageCreate', async message => {
                 adapterCreator: voiceChannel.guild.voiceAdapterCreator,
             });
 
-            // تدفق الصوت
-            const stream = await play.stream(songUrl);
-            const resource = createAudioResource(stream.stream, { inputType: stream.type });
+            // جلب البث الصوتي
+            let streamData = await play.stream(song.url);
+            let resource = createAudioResource(streamData.stream, { inputType: streamData.type });
             const player = createAudioPlayer();
 
             player.play(resource);
             connection.subscribe(player);
 
-            message.reply(`🎶 جاري تشغيل الآن: **${searchResult[0].title}**`);
+            await msg.edit(`🎶 جاري تشغيل الآن: **${song.title}**`);
 
             player.on(AudioPlayerStatus.Idle, () => {
                 connection.destroy();
             });
 
             player.on('error', error => {
-                console.error(error);
+                console.error('Audio Player Error:', error);
                 message.channel.send('❌ حدث خطأ أثناء تشغيل الصوت.');
                 connection.destroy();
             });
 
         } catch (error) {
-            console.error(error);
-            message.reply('❌ حدث خطأ أثناء محاولة تشغيل الأغنية.');
+            console.error('Command Error:', error);
+            message.reply(`❌ حدث خطأ أثناء محاولة تشغيل الأغنية:\n\`\`\`${error.message}\`\`\``);
         }
     }
 });
 
-// ضع توكن بوتك هنا أو في متغيرات البيئة (Environment Variables)
 client.login(process.env.DISCORD_TOKEN);
