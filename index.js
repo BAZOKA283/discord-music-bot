@@ -85,6 +85,6 @@ client.on('messageCreate', async message => {
 });
 
 // ضع توكن بوتك هنا بدل المربعين أو في متغيرات البيئة (Environment Variables) برندر
-client.login(process.env.DISCORD_TOKEN);
+client.login('NzIwMjU4NTQ5MDc4NTU2Nzc1.GtL4tr.03BbZHtd9rcfE4-7C2xAFGp3MlQ_dyg76nEbDc');
 
 
