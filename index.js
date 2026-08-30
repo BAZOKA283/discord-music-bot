@@ -7,7 +7,7 @@ const express = require('express');
 
 process.env.FFMPEG_PATH = ffmpeg;
 
-// سيرفر أمان لتبقى استضافة Railway شغالة 24/7
+// سيرفر إبقائي لتبقى استضافة Railway شغالة 24/7
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Music Bot is running perfectly!'));
@@ -63,7 +63,7 @@ client.on('interactionCreate', async interaction => {
             let videoUrl = query;
             let videoTitle = query;
 
-            // إذا لم يكن المدخل رابطاً، نبحث عنه بالاسم
+            // البحث عن الأغنية أو التحقق من الرابط
             if (!ytdl.validateURL(query)) {
                 const searchResult = await ytSearch(query);
                 if (!searchResult || searchResult.videos.length === 0) {
@@ -84,7 +84,7 @@ client.on('interactionCreate', async interaction => {
                 selfDeaf: false,
             });
 
-            // سحب الصوت بأعلى استقرار وبدون تقطيع
+            // سحب دفق الصوت مع الخيارات الآمنة للاستضافات
             const stream = await ytdl(videoUrl, {
                 filter: 'audioonly',
                 quality: 'highestaudio',
@@ -100,7 +100,7 @@ client.on('interactionCreate', async interaction => {
 
             await interaction.editReply(`🎶 جاري تشغيل الآن: **${videoTitle}**`);
 
-            // مغادرة الروم تلقائياً عند انتهاء الأغنية
+            // مغادرة الروم عند انتهاء الأغنية
             player.on(AudioPlayerStatus.Idle, () => {
                 connection.destroy();
             });
