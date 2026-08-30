@@ -1,11 +1,11 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
 const ytdl = require('ytdl-core');
 const ytSearch = require('yt-search');
 const ffmpeg = require('ffmpeg-static');
 const express = require('express');
 
-// تعيين مسار ffmpeg تلقائياً من الحزمة المثبتة
+// تعيين مسار FFmpeg
 process.env.FFMPEG_PATH = ffmpeg;
 
 const app = express();
@@ -16,42 +16,61 @@ app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.GuildVoiceStates
     ]
 });
 
-client.once('ready', () => {
+// تعريف أمر الـ Slash Command
+const commands = [
+    new SlashCommandBuilder()
+        .setName('play')
+        .setDescription('تشغيل أغنية من يوتيوب بالاسم أو الرابط')
+        .addStringOption(option =>
+            option.setName('song')
+                .setDescription('اسم الأغنية أو رابط يوتيوب')
+                .setRequired(true)
+        )
+].map(command => command.toJSON());
+
+client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
+
+    // تسجيل الأوامر في السيرفرات تلقائياً عند التشغيل
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+    try {
+        console.log('Started refreshing application (/) commands.');
+        await rest.put(
+            Routes.applicationCommands(client.user.id),
+            { body: commands },
+        );
+        console.log('Successfully reloaded application (/) commands.');
+    } catch (error) {
+        console.error(error);
+    }
 });
 
-client.on('messageCreate', async message => {
-    if (message.author.bot) return;
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isChatInputCommand()) return;
 
-    if (message.content.startsWith('3play')) {
-        const args = message.content.split(' ');
-        const query = args.slice(1).join(' ');
+    if (interaction.commandName === 'play') {
+        const query = interaction.options.getString('song');
+        const voiceChannel = interaction.member?.voice.channel;
 
-        if (!query) {
-            return message.reply('❌ يرجى كتابة اسم أو رابط الأغنية بعد الأمر مثال: `3play faded`');
-        }
-
-        const voiceChannel = message.member?.voice.channel;
         if (!voiceChannel) {
-            return message.reply('❌ يجب أن تكون متصلاً بروم صوتي (Voice Channel)!');
+            return interaction.reply({ content: '❌ يجب أن تكون متصلاً بروم صوتي (Voice Channel)!', ephemeral: true });
         }
+
+        // الرد الفوري لأن البحث قد يستغرق ثواني
+        await interaction.deferReply();
 
         try {
-            const msg = await message.channel.send('🔍 جاري البحث والتحميل...');
-
             let videoUrl = query;
             let videoTitle = query;
 
             if (!ytdl.validateURL(query)) {
                 const searchResult = await ytSearch(query);
                 if (!searchResult || searchResult.videos.length === 0) {
-                    return msg.edit('❌ لم يتم العثور على نتائج مطابقة!');
+                    return interaction.editReply('❌ لم يتم العثور على نتائج مطابقة!');
                 }
                 videoUrl = searchResult.videos[0].url;
                 videoTitle = searchResult.videos[0].title;
@@ -78,7 +97,7 @@ client.on('messageCreate', async message => {
             player.play(resource);
             connection.subscribe(player);
 
-            await msg.edit(`🎶 جاري تشغيل الآن: **${videoTitle}**`);
+            await interaction.editReply(`🎶 جاري تشغيل الآن: **${videoTitle}**`);
 
             player.on(AudioPlayerStatus.Idle, () => {
                 connection.destroy();
@@ -86,13 +105,13 @@ client.on('messageCreate', async message => {
 
             player.on('error', error => {
                 console.error('Audio Player Error:', error);
-                message.channel.send('❌ حدث خطأ أثناء تشغيل الصوت.');
+                interaction.followUp({ content: '❌ حدث خطأ أثناء تشغيل الصوت.', ephemeral: true });
                 connection.destroy();
             });
 
         } catch (error) {
             console.error('Command Error:', error);
-            message.reply(`❌ حدث خطأ أثناء محاولة تشغيل الأغنية:\n\`\`\`${error.message}\`\`\``);
+            await interaction.editReply(`❌ حدث خطأ أثناء محاولة التشغيل:\n\`\`\`${error.message}\`\`\``);
         }
     }
 });
