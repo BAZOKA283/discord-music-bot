@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const ytdl = require('@distube/ytdl-core'); // استخدام النسخة الأكثر استقراراً لتجاوز حظر يوتيوب
+const ytdl = require('ytdl-core');
 const ytSearch = require('yt-search');
 const ffmpeg = require('ffmpeg-static');
 const express = require('express');
@@ -77,15 +77,13 @@ client.on('interactionCreate', async interaction => {
                 channelId: voiceChannel.id,
                 guildId: voiceChannel.guild.id,
                 adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-                selfDeaf: false, // التأكد من عدم جعل البوت صامتاً لنفسه
+                selfDeaf: false,
             });
 
-            // ضبط خيارات التحميل لتتوافق مع استقرار الصوت
             const stream = ytdl(videoUrl, {
                 filter: 'audioonly',
                 quality: 'highestaudio',
                 highWaterMark: 1 << 25,
-                dlChunkSize: 0,
             });
 
             const resource = createAudioResource(stream);
