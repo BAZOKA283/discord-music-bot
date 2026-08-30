@@ -1,16 +1,16 @@
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const ytdl = require('@distube/ytdl-core');
+const play = require('play-dl');
 const ytSearch = require('yt-search');
 const ffmpeg = require('ffmpeg-static');
 const express = require('express');
 
 process.env.FFMPEG_PATH = ffmpeg;
 
-// سيرفر إبقائي لتبقى استضافة Railway شغالة 24/7
+// سيرفر إبقائي لاستضافة Railway
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Music Bot is running perfectly!'));
+app.get('/', (req, res) => res.send('Music Bot is running with play-dl!'));
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 const client = new Client({
@@ -24,7 +24,7 @@ const client = new Client({
 const commands = [
     new SlashCommandBuilder()
         .setName('play')
-        .setDescription('تشغيل أغنية من يوتيوب بجودة عالية')
+        .setDescription('تشغيل أغنية من يوتيوب بجودة عالية وثابتة')
         .addStringOption(option =>
             option.setName('song')
                 .setDescription('اسم الأغنية أو رابط يوتيوب مباشر')
@@ -63,8 +63,8 @@ client.on('interactionCreate', async interaction => {
             let videoUrl = query;
             let videoTitle = query;
 
-            // البحث عن الأغنية أو التحقق من الرابط
-            if (!ytdl.validateURL(query)) {
+            // البحث أو التحقق من الرابط باستخدام yt-search و play-dl
+            if (!play.yt_validate(query)) {
                 const searchResult = await ytSearch(query);
                 if (!searchResult || searchResult.videos.length === 0) {
                     return interaction.editReply('❌ لم يتم العثور على نتائج مطابقة لهذا البحث!');
@@ -72,8 +72,8 @@ client.on('interactionCreate', async interaction => {
                 videoUrl = searchResult.videos[0].url;
                 videoTitle = searchResult.videos[0].title;
             } else {
-                const videoInfo = await ytdl.getInfo(query);
-                videoTitle = videoInfo.videoDetails.title;
+                const info = await play.video_info(query);
+                videoTitle = info.video_details.title;
             }
 
             // الاتصال بالروم الصوتي
@@ -84,17 +84,13 @@ client.on('interactionCreate', async interaction => {
                 selfDeaf: false,
             });
 
-            // سحب دفق الصوت مع الخيارات الآمنة للاستضافات
-            const stream = await ytdl(videoUrl, {
-                filter: 'audioonly',
-                quality: 'highestaudio',
-                highWaterMark: 1 << 25,
-                dlChunkSize: 0,
+            // دفق الصوت باستخدام play-dl و ffmpeg
+            const stream = await play.stream(videoUrl);
+            const resource = createAudioResource(stream.stream, {
+                inputType: stream.type
             });
 
-            const resource = createAudioResource(stream);
             const player = createAudioPlayer();
-
             player.play(resource);
             connection.subscribe(player);
 
@@ -107,7 +103,7 @@ client.on('interactionCreate', async interaction => {
 
             player.on('error', error => {
                 console.error('Audio Player Error:', error);
-                interaction.followUp({ content: '❌ حدث خطأ تقني أثناء تشغيل الأغنية.', ephemeral: true });
+                interaction.followUp({ content: '❌ حدث خطأ تقني أثناء تشغيل الصوت.', ephemeral: true });
                 connection.destroy();
             });
 
