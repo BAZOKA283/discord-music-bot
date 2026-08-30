@@ -3,7 +3,7 @@ const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerSta
 const play = require('play-dl');
 const express = require('express');
 
-// سيرفر وهمي حتى يظل البوت شغال وما ينطفئ
+// سيرفر وهمي حتى يظل البوت شغال وما يطفي
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Bot is running!'));
@@ -25,24 +25,24 @@ client.once('ready', () => {
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
 
-    // أمر التشغيل: !play [رابط الأغنية أو اسم البحث]
+    // رابط الأغنية أو اسم البحث | امر التشغيل 3play
     if (message.content.startsWith('3play')) {
         const args = message.content.split(' ');
         const query = args.slice(1).join(' ');
 
         if (!query) {
-            return message.reply('❌ يرجى كتابة اسم أو رابط الأغنية بعد الأمر! مثال: `!play faded`');
+            return message.reply('❌ يرجى كتابة اسم أو رابط الأغنية بعد الأمر مثال: `3play faded`');
         }
 
         const voiceChannel = message.member?.voice.channel;
         if (!voiceChannel) {
-            return message.reply('❌ يجب أن تكون متصلاً بروم صوتي (Voice Channel) أولاً!');
+            return message.reply('❌ يجب أن تكون متصلاً بروم صوتي (Voice Channel)!');
         }
 
         try {
             message.channel.send('🔍 جاري البحث والتحميل...');
 
-            // البحث عن المقطع باستخدام play-dl
+            // play-dl البحث عن المقطع باستخدام
             let searchResult = await play.search(query, { limit: 1 });
             if (!searchResult.length) {
                 return message.reply('❌ لم يتم العثور على نتائج مطابقة!');
@@ -57,7 +57,7 @@ client.on('messageCreate', async message => {
                 adapterCreator: voiceChannel.guild.voiceAdapterCreator,
             });
 
-            // دفق الصوت
+            // تدفق الصوت
             const stream = await play.stream(songUrl);
             const resource = createAudioResource(stream.stream, { inputType: stream.type });
             const player = createAudioPlayer();
@@ -65,7 +65,7 @@ client.on('messageCreate', async message => {
             player.play(resource);
             connection.subscribe(player);
 
-            message.reply(`🎶 **جاري تشغيل الآن:** ${searchResult[0].title}`);
+            message.reply(`🎶 جاري تشغيل الآن: **${searchResult[0].title}**`);
 
             player.on(AudioPlayerStatus.Idle, () => {
                 connection.destroy();
@@ -84,7 +84,5 @@ client.on('messageCreate', async message => {
     }
 });
 
-// ضع توكن بوتك هنا بدل المربعين أو في متغيرات البيئة (Environment Variables) برندر
+// ضع توكن بوتك هنا أو في متغيرات البيئة (Environment Variables)
 client.login(process.env.DISCORD_TOKEN);
-
-
