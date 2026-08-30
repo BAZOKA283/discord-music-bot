@@ -1,7 +1,7 @@
 {
-  "name": "discord-music-bot",
+  "name": "discord-slash-music-bot",
   "version": "1.0.0",
-  "description": "Discord music bot for Railway",
+  "description": "Discord music bot with Slash Commands",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
